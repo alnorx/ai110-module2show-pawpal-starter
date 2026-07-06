@@ -1,6 +1,14 @@
 import streamlit as st
 
-from pawpal_system import Frequency, Owner, Pet, Priority, Scheduler, Task
+from pawpal_system import (
+    Frequency,
+    Owner,
+    Pet,
+    Priority,
+    Scheduler,
+    Task,
+    TaskStatus,
+)
 
 st.set_page_config(page_title="PawPal+", page_icon="🐾", layout="centered")
 
@@ -97,34 +105,69 @@ if owner.pets:
             "Frequency", list(Frequency), format_func=lambda f: f.value
         )
 
+    time_str = st.text_input(
+        "Scheduled time (optional, 24h HH:MM — leave blank for anytime)",
+        value="",
+    )
+
     if st.button("Add task"):
         if not task_title.strip():
             st.error("Task title can't be empty.")
         else:
             pet = next(p for p in owner.pets if p.name == task_pet)
-            pet.add_task(
-                Task(task_title.strip(), int(duration), priority, frequency)
-            )
+            try:
+                pet.add_task(
+                    Task(
+                        task_title.strip(),
+                        int(duration),
+                        priority,
+                        frequency,
+                        scheduled_time=time_str.strip() or None,
+                    )
+                )
+                st.success(f"Added '{task_title}' for {task_pet}")
+            except ValueError as err:
+                st.error(str(err))  # e.g. bad time format like "8:00"
 
-# The table is rendered FROM the real objects — the objects are the
-# single source of truth, the table is just a view of them.
+# The table is a VIEW of the real objects: filtered by
+# Owner.filter_tasks() and ordered by Scheduler.sort_by_time().
 all_tasks = [(pet, task) for pet in owner.pets for task in pet.tasks]
 if all_tasks:
-    st.write("Current tasks:")
-    st.table(
-        [
-            {
-                "Pet": pet.name,
-                "Task": task.description,
-                "Duration (min)": task.duration_minutes,
-                "Priority": task.priority.name.lower(),
-                "Frequency": task.frequency.value,
-                "Due": str(task.due_date),
-                "Status": task.status.value,
-            }
-            for pet, task in all_tasks
-        ]
+    fcol1, fcol2 = st.columns(2)
+    with fcol1:
+        pet_choice = st.selectbox(
+            "Show tasks for", ["All pets"] + [p.name for p in owner.pets]
+        )
+    with fcol2:
+        status_choice = st.selectbox(
+            "With status", ["All statuses"] + [s.value for s in TaskStatus]
+        )
+
+    shown = owner.filter_tasks(
+        pet_name=None if pet_choice == "All pets" else pet_choice,
+        status=None if status_choice == "All statuses"
+        else TaskStatus(status_choice),
     )
+    shown = scheduler.sort_by_time(shown)
+
+    if shown:
+        st.table(
+            [
+                {
+                    "Time": task.scheduled_time or "anytime",
+                    "Pet": pet.name,
+                    "Task": task.description,
+                    "Duration (min)": task.duration_minutes,
+                    "Priority": task.priority.name.lower(),
+                    "Frequency": task.frequency.value,
+                    "Due": str(task.due_date),
+                    "Status": task.status.value,
+                }
+                for pet, task in shown
+            ]
+        )
+    else:
+        st.info("No tasks match these filters.")
 
     # Mark a task complete. Completion goes through Pet.complete_task()
     # so recurring tasks automatically spawn their next occurrence.
@@ -160,9 +203,17 @@ st.divider()
 # ---------------------------------------------------------------
 st.subheader("Build Schedule")
 
+# Conflict warnings appear BEFORE the user builds the plan, so they
+# can fix times first. Advisory (warning), not blocking (error): the
+# owner may intend the overlap (e.g. two family members helping).
+conflicts = scheduler.detect_conflicts()
+if conflicts:
+    for warning in conflicts:
+        st.warning(warning, icon="⚠️")
+else:
+    st.success("No scheduling conflicts today.", icon="✅")
+
 if st.button("Generate schedule", type="primary"):
-    for warning in scheduler.detect_conflicts():
-        st.warning(warning)
     plan = scheduler.generate_daily_plan()
     if not plan:
         st.info(scheduler.explain_plan(plan))

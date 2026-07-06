@@ -141,11 +141,26 @@ tests/test_pawpal.py .........                                                  
 ## 📸 Demo Walkthrough
 
 Describe your app in numbered steps so a reader can follow along without watching a video:
+The UI
 
-1. <!-- Describe this step -->
-2. <!-- Describe this step -->
-3. <!-- Describe this step -->
-4. <!-- Describe this step -->
-5. <!-- Add more steps as needed -->
+The Streamlit app (streamlit run app.py) has three areas:
+
+
+1. Owner — set your name and how many minutes you have available today. The time budget directly constrains the generated plan.
+2. Pets & Tasks — add pets (name + species), then add tasks for a chosen pet: title, duration, priority, frequency (Once/Daily/Weekly), and an optional scheduled time in 24-hour HH:MM. The task table can be filtered by pet and status, and always displays in chronological order with "anytime" tasks last. A dropdown lets you mark tasks complete — completing a Daily task instantly spawns tomorrow's copy in the table.
+3. Build Schedule — conflict warnings (or a green all-clear) appear before you generate. The button produces today's ordered plan, with a "Why this order?" expander explaining the Scheduler's reasoning.
+
+
+Example workflow
+
+Add pet Rex (dog) → schedule "Evening walk" (30 min, high, daily, 18:30) and "Vet visit" (60 min, high, once, 18:00) → a ⚠️ warning appears: the walk overlaps the vet visit, which runs until 19:00 → change the walk to 19:00 → ✅ no conflicts → Generate schedule → both tasks appear, ordered, with reasoning → mark the walk complete → tomorrow's walk appears automatically, but stays out of today's plan.
+
+Scheduler behaviors demonstrated
+
+
+Sorting: the task table is time-ordered; the plan is priority-ordered.
+Constraint filtering: lower the available minutes and regenerate — low-priority tasks drop out first, and the explanation reports how many didn't fit.
+Conflict warnings: overlapping timed tasks produce specific warnings before planning, without blocking.
+Recurrence: completed Daily/Weekly tasks self-schedule their next occurrence.
 
 **Screenshot or video** *(optional)*: <!-- Insert a screenshot or link to a demo video here -->

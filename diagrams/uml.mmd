@@ -1,15 +1,76 @@
 classDiagram
-    %% Replace the placeholders below with your actual classes, attributes, methods, and relationships.
-    %% Keep this file updated so it matches your final implementation.
-
-    class ClassName {
-        +type attribute
-        +method() returnType
+    class TaskStatus {
+        <<enumeration>>
+        NOT_STARTED
+        IN_PROGRESS
+        COMPLETED
+        CANCELLED
     }
 
-    class AnotherClass {
-        +type attribute
-        +method() returnType
+    class Priority {
+        <<enumeration>>
+        HIGH
+        MEDIUM
+        LOW
     }
 
-    ClassName --> AnotherClass : relationship
+    class Frequency {
+        <<enumeration>>
+        ONCE
+        DAILY
+        WEEKLY
+    }
+
+    class Task {
+        +str description
+        +int duration_minutes
+        +Priority priority
+        +Frequency frequency
+        +TaskStatus status
+        +str scheduled_time
+        +date due_date
+        +mark_in_progress()
+        +mark_completed()
+        +cancel()
+        +is_pending() bool
+        +next_occurrence() Task
+    }
+
+    class Pet {
+        +str name
+        +str pet_type
+        +list~Task~ tasks
+        +add_task(task)
+        +remove_task(task)
+        +complete_task(task) Task
+        +get_pending_tasks() list~Task~
+    }
+
+    class Owner {
+        +str name
+        +int available_time_minutes
+        +list preferences
+        +list~Pet~ pets
+        +add_pet(pet)
+        +set_available_time(minutes)
+        +get_all_pending_tasks() list
+        +filter_tasks(pet_name, status) list
+    }
+
+    class Scheduler {
+        +Owner owner
+        +generate_daily_plan() list
+        +sort_tasks_by_priority(items) list
+        +sort_by_time(items) list
+        +filter_by_available_time(items) list
+        +detect_conflicts() list~str~
+        +explain_plan(plan) str
+    }
+
+    Owner "1" --> "*" Pet : owns
+    Pet "1" --> "*" Task : has
+    Scheduler "1" --> "1" Owner : plans for
+    Task ..> Task : next_occurrence() creates
+    Task --> TaskStatus : has status
+    Task --> Priority : has priority
+    Task --> Frequency : recurs by
