@@ -148,6 +148,7 @@ class Scheduler:
     """
 
     def __init__(self, owner: Owner) -> None:
+        """Attach this scheduler to the owner whose tasks it will plan."""
         self.owner = owner
 
     def generate_daily_plan(self) -> list[tuple[Pet, Task]]:
