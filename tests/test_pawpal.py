@@ -3,9 +3,11 @@
 Run from the repo root with:  python -m pytest
 """
 
+from datetime import date, timedelta
+
 import pytest
 
-from pawpal_system import Pet, Priority, Task, TaskStatus
+from pawpal_system import Frequency, Pet, Priority, Task, TaskStatus
 
 
 def test_mark_completed_changes_status():
@@ -46,3 +48,39 @@ def test_pets_do_not_share_task_lists():
 
     assert len(rex.tasks) == 1
     assert len(whiskers.tasks) == 0
+
+
+def test_completing_daily_task_spawns_tomorrows_copy():
+    """Recurrence: complete_task on a DAILY task adds a new instance."""
+    pet = Pet(name="Whiskers", pet_type="cat")
+    dinner = Task("Feed dinner", 10, frequency=Frequency.DAILY)
+    pet.add_task(dinner)
+
+    follow_up = pet.complete_task(dinner)
+
+    assert dinner.status == TaskStatus.COMPLETED       # history kept
+    assert len(pet.tasks) == 2                         # new copy added
+    assert follow_up.status == TaskStatus.NOT_STARTED
+    assert follow_up.due_date == date.today() + timedelta(days=1)
+
+
+def test_completing_once_task_does_not_recur():
+    """Recurrence: ONCE tasks produce no follow-up."""
+    pet = Pet(name="Rex", pet_type="dog")
+    meds = Task("Give heartworm meds", 5, frequency=Frequency.ONCE)
+    pet.add_task(meds)
+
+    follow_up = pet.complete_task(meds)
+
+    assert follow_up is None
+    assert len(pet.tasks) == 1
+
+
+def test_future_task_is_not_pending_today():
+    """A spawned task due tomorrow must not appear in today's pending."""
+    pet = Pet(name="Rex", pet_type="dog")
+    walk = Task("Walk", 30, frequency=Frequency.DAILY)
+    pet.add_task(walk)
+    pet.complete_task(walk)
+
+    assert len(pet.get_pending_tasks()) == 0

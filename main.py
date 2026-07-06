@@ -27,7 +27,7 @@ def build_sample_data() -> Owner:
                            scheduled_time="17:00"))
     whiskers.add_task(Task("Clean litter box", 10, Priority.MEDIUM,
                            Frequency.DAILY))
-    whiskers.tasks[0].mark_completed()  # so the status filter has variety
+    whiskers.complete_task(whiskers.tasks[0])  # spawns tomorrow's dinner
 
     return owner
 
@@ -84,6 +84,16 @@ def main() -> None:
         pet_name="Rex", status=TaskStatus.NOT_STARTED
     ):
         print(f"  - {task.description}")
+
+    # --- Phase 4: recurring tasks ---
+    print("\nWhiskers' full task history (recurrence in action):")
+    for task in owner.pets[1].tasks:
+        print(
+            f"  - {task.description:<18} due {task.due_date}  "
+            f"[{task.status.value}]"
+        )
+    print("Completing daily 'Feed dinner' auto-created tomorrow's copy;")
+    print("note it is NOT in today's plan above — it isn't due yet.")
 
 
 if __name__ == "__main__":

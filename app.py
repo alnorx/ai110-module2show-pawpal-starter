@@ -119,11 +119,37 @@ if all_tasks:
                 "Duration (min)": task.duration_minutes,
                 "Priority": task.priority.name.lower(),
                 "Frequency": task.frequency.value,
+                "Due": str(task.due_date),
                 "Status": task.status.value,
             }
             for pet, task in all_tasks
         ]
     )
+
+    # Mark a task complete. Completion goes through Pet.complete_task()
+    # so recurring tasks automatically spawn their next occurrence.
+    pending = [(pet, task) for pet, task in all_tasks if task.is_pending()]
+    if pending:
+        col_sel, col_btn = st.columns([4, 1])
+        with col_sel:
+            choice = st.selectbox(
+                "Mark a task complete",
+                range(len(pending)),
+                format_func=lambda i: (
+                    f"{pending[i][1].description} — {pending[i][0].name}"
+                ),
+            )
+        with col_btn:
+            st.write("")
+            if st.button("Complete"):
+                pet, task = pending[choice]
+                follow_up = pet.complete_task(task)
+                if follow_up is not None:
+                    st.toast(
+                        f"Recurring task: next '{follow_up.description}' "
+                        f"due {follow_up.due_date}"
+                    )
+                st.rerun()
 elif owner.pets:
     st.info("No tasks yet. Add one above.")
 

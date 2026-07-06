@@ -4,7 +4,8 @@ Backend classes for the PawPal+ pet care scheduling app.
 Phase 2: full core implementation (translated from diagrams/uml_draft.mmd).
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
+from datetime import date, timedelta
 from enum import Enum
 
 
@@ -39,6 +40,7 @@ class Task:
     frequency: Frequency = Frequency.ONCE
     status: TaskStatus = TaskStatus.NOT_STARTED
     scheduled_time: str | None = None  # "HH:MM" 24-hour, or None = flexible
+    due_date: date = field(default_factory=date.today)
 
     def __post_init__(self) -> None:
         """Validate scheduled_time is a real 'HH:MM' clock time (or None)."""
@@ -96,8 +98,28 @@ class Task:
         self.status = TaskStatus.CANCELLED
 
     def is_pending(self) -> bool:
-        """A task is pending if it can still be worked on today."""
-        return self.status in self._ACTIVE
+        """A task is pending if it's active and due by today."""
+        return self.status in self._ACTIVE and self.due_date <= date.today()
+
+    def next_occurrence(self) -> "Task | None":
+        """Return a fresh Task for the next occurrence, or None if ONCE.
+
+        DAILY tasks recur tomorrow (+1 day), WEEKLY in 7 days.
+        dataclasses.replace() copies every field except the ones we
+        override: status resets to NOT_STARTED and due_date advances.
+        """
+        deltas = {
+            Frequency.DAILY: timedelta(days=1),
+            Frequency.WEEKLY: timedelta(days=7),
+        }
+        delta = deltas.get(self.frequency)
+        if delta is None:  # Frequency.ONCE
+            return None
+        return replace(
+            self,
+            status=TaskStatus.NOT_STARTED,
+            due_date=self.due_date + delta,
+        )
 
 
 @dataclass
@@ -110,6 +132,19 @@ class Pet:
     def add_task(self, task: Task) -> None:
         """Add a care task to this pet's task list."""
         self.tasks.append(task)
+
+    def complete_task(self, task: Task) -> "Task | None":
+        """Mark a task completed and auto-add its next occurrence.
+
+        The completed task stays in the list as history. If the task
+        recurs (Daily/Weekly), the new instance is appended and
+        returned; for one-off tasks, returns None.
+        """
+        task.mark_completed()
+        follow_up = task.next_occurrence()
+        if follow_up is not None:
+            self.add_task(follow_up)
+        return follow_up
 
     def remove_task(self, task: Task) -> None:
         """Remove a task from this pet's task list.
