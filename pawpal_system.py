@@ -289,6 +289,50 @@ class Scheduler:
                 used += task.duration_minutes
         return plan
 
+    @staticmethod
+    def _to_minutes(hhmm: str) -> int:
+        """Convert 'HH:MM' to minutes since midnight (e.g. '08:30' -> 510)."""
+        hours, minutes = hhmm.split(":")
+        return int(hours) * 60 + int(minutes)
+
+    def detect_conflicts(self) -> list[str]:
+        """Return warning strings for overlapping timed tasks (never raises).
+
+        Lightweight sweep: consider today's pending tasks that have a
+        scheduled_time, sort them chronologically, and walk the list
+        once while remembering the latest end time seen so far. Any
+        task that starts before that point overlaps — including tasks
+        for different pets, since one owner can't be in two places.
+        An empty list means no conflicts.
+        """
+        timed = [
+            (pet, task)
+            for pet, task in self.owner.get_all_pending_tasks()
+            if task.scheduled_time is not None
+        ]
+        timed.sort(key=lambda pair: pair[1].scheduled_time)
+
+        warnings: list[str] = []
+        latest_end = -1  # minutes since midnight
+        blocker: tuple[Pet, Task] | None = None  # task holding latest_end
+
+        for pet, task in timed:
+            start = self._to_minutes(task.scheduled_time)
+            if start < latest_end and blocker is not None:
+                b_pet, b_task = blocker
+                warnings.append(
+                    f"Warning: '{task.description}' ({pet.name}) at "
+                    f"{task.scheduled_time} overlaps "
+                    f"'{b_task.description}' ({b_pet.name}), which runs "
+                    f"{b_task.scheduled_time}-"
+                    f"{latest_end // 60:02d}:{latest_end % 60:02d}."
+                )
+            end = start + task.duration_minutes
+            if end > latest_end:
+                latest_end = end
+                blocker = (pet, task)
+        return warnings
+
     def explain_plan(self, plan: list[tuple[Pet, Task]]) -> str:
         """Return a human-readable explanation of the plan's ordering."""
         if not plan:

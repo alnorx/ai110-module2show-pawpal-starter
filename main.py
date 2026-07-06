@@ -29,6 +29,13 @@ def build_sample_data() -> Owner:
                            Frequency.DAILY))
     whiskers.complete_task(whiskers.tasks[0])  # spawns tomorrow's dinner
 
+    # Deliberate conflict: vet visit overlaps Rex's 18:30 evening walk
+    # AND Whiskers' grooming starts at the exact same time.
+    rex.add_task(Task("Vet visit", 60, Priority.HIGH, Frequency.ONCE,
+                      scheduled_time="18:00"))
+    whiskers.add_task(Task("Grooming", 20, Priority.MEDIUM, Frequency.ONCE,
+                           scheduled_time="18:00"))
+
     return owner
 
 
@@ -94,6 +101,14 @@ def main() -> None:
         )
     print("Completing daily 'Feed dinner' auto-created tomorrow's copy;")
     print("note it is NOT in today's plan above — it isn't due yet.")
+
+    # --- Phase 4: conflict detection ---
+    print("\nConflict check:")
+    conflicts = scheduler.detect_conflicts()
+    if not conflicts:
+        print("  No scheduling conflicts found.")
+    for warning in conflicts:
+        print(f"  {warning}")
 
 
 if __name__ == "__main__":

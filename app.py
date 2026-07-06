@@ -161,6 +161,8 @@ st.divider()
 st.subheader("Build Schedule")
 
 if st.button("Generate schedule", type="primary"):
+    for warning in scheduler.detect_conflicts():
+        st.warning(warning)
     plan = scheduler.generate_daily_plan()
     if not plan:
         st.info(scheduler.explain_plan(plan))

@@ -7,7 +7,15 @@ from datetime import date, timedelta
 
 import pytest
 
-from pawpal_system import Frequency, Pet, Priority, Task, TaskStatus
+from pawpal_system import (
+    Frequency,
+    Owner,
+    Pet,
+    Priority,
+    Scheduler,
+    Task,
+    TaskStatus,
+)
 
 
 def test_mark_completed_changes_status():
@@ -84,3 +92,33 @@ def test_future_task_is_not_pending_today():
     pet.complete_task(walk)
 
     assert len(pet.get_pending_tasks()) == 0
+
+
+def _owner_with(*tasks: Task) -> Owner:
+    """Helper: one owner, one pet, the given tasks."""
+    owner = Owner(name="Sam")
+    pet = Pet(name="Rex", pet_type="dog")
+    owner.add_pet(pet)
+    for task in tasks:
+        pet.add_task(task)
+    return owner
+
+
+def test_overlapping_tasks_produce_warning():
+    """Conflicts: a task starting inside another's window is flagged."""
+    owner = _owner_with(
+        Task("Vet visit", 60, scheduled_time="18:00"),
+        Task("Walk", 30, scheduled_time="18:30"),
+    )
+    warnings = Scheduler(owner).detect_conflicts()
+    assert len(warnings) == 1
+    assert "Walk" in warnings[0] and "Vet visit" in warnings[0]
+
+
+def test_back_to_back_tasks_do_not_conflict():
+    """Conflicts: a task starting exactly when another ends is fine."""
+    owner = _owner_with(
+        Task("Vet visit", 60, scheduled_time="18:00"),
+        Task("Walk", 30, scheduled_time="19:00"),
+    )
+    assert Scheduler(owner).detect_conflicts() == []
