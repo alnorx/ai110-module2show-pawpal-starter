@@ -38,6 +38,25 @@ class Task:
     priority: Priority = Priority.MEDIUM
     frequency: Frequency = Frequency.ONCE
     status: TaskStatus = TaskStatus.NOT_STARTED
+    scheduled_time: str | None = None  # "HH:MM" 24-hour, or None = flexible
+
+    def __post_init__(self) -> None:
+        """Validate scheduled_time is a real 'HH:MM' clock time (or None)."""
+        t = self.scheduled_time
+        if t is None:
+            return
+        parts = t.split(":")
+        valid = (
+            len(parts) == 2
+            and len(parts[0]) == 2 and len(parts[1]) == 2
+            and parts[0].isdigit() and parts[1].isdigit()
+            and 0 <= int(parts[0]) <= 23
+            and 0 <= int(parts[1]) <= 59
+        )
+        if not valid:
+            raise ValueError(
+                f"scheduled_time must be 'HH:MM' (24-hour), got {t!r}"
+            )
 
     # Statuses from which a task may still change.
     _ACTIVE = (TaskStatus.NOT_STARTED, TaskStatus.IN_PROGRESS)
@@ -139,6 +158,25 @@ class Owner:
             for task in pet.get_pending_tasks()
         ]
 
+    def filter_tasks(
+        self,
+        pet_name: str | None = None,
+        status: TaskStatus | None = None,
+    ) -> list[tuple[Pet, Task]]:
+        """Return (pet, task) pairs matching the given filters.
+
+        Each filter is optional: None means "don't filter on this",
+        so the criteria compose freely (pet only, status only, both,
+        or neither — which returns every task).
+        """
+        return [
+            (pet, task)
+            for pet in self.pets
+            if pet_name is None or pet.name == pet_name
+            for task in pet.tasks
+            if status is None or task.status == status
+        ]
+
 
 class Scheduler:
     """Coordination logic: builds and explains the daily plan.
@@ -164,6 +202,25 @@ class Scheduler:
         items = self.owner.get_all_pending_tasks()
         items = self.sort_tasks_by_priority(items)
         return self.filter_by_available_time(items)
+
+    def sort_by_time(
+        self, items: list[tuple[Pet, Task]]
+    ) -> list[tuple[Pet, Task]]:
+        """Order (pet, task) pairs chronologically by scheduled_time.
+
+        Zero-padded 24-hour "HH:MM" strings sort chronologically as
+        plain strings, so no time parsing is needed. Tasks with no
+        scheduled_time (flexible) sort after all timed tasks: the key
+        is a tuple whose first element is False for timed tasks and
+        True for untimed ones, and False < True.
+        """
+        return sorted(
+            items,
+            key=lambda pair: (
+                pair[1].scheduled_time is None,
+                pair[1].scheduled_time or "",
+            ),
+        )
 
     def sort_tasks_by_priority(
         self, items: list[tuple[Pet, Task]]
